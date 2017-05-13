@@ -21,9 +21,12 @@ import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.formatter.PercentFormatter;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.nexters.rainbow.rainbowcouple.R;
+import com.nexters.rainbow.rainbowcouple.bill.Bill;
+import com.nexters.rainbow.rainbowcouple.bill.BillApi;
 import com.nexters.rainbow.rainbowcouple.bill.OwnerType;
 import com.nexters.rainbow.rainbowcouple.bill.add.BillAddActivity;
 import com.nexters.rainbow.rainbowcouple.common.BaseActivity;
+import com.nexters.rainbow.rainbowcouple.common.network.ExceptionHandler;
 import com.nexters.rainbow.rainbowcouple.common.network.NetworkManager;
 import com.nexters.rainbow.rainbowcouple.common.network.SessionManager;
 import com.nexters.rainbow.rainbowcouple.common.utils.TimeUtils;
@@ -47,23 +50,44 @@ public class GraphActivity extends BaseActivity {
 
     private static final int ADD_BILL_ACTIVITY = 1;
 
-    @Bind(R.id.pieChart) PieChart mChart;
-    @Bind(R.id.lineChart) LineChart lineChart;
-    @Bind(R.id.tvBtnMonthly) TextView btnMonthly;
-    @Bind(R.id.tvBtnWeekly) TextView btnWeekly;
-    @Bind(R.id.btnMe) Button btnMe;
-    @Bind(R.id.btnYou) Button btnYou;
-    @Bind(R.id.btnOur) Button btnOur;
-    @Bind(R.id.rlGraphGroup) RelativeLayout rlGraphGoup;
-    @Bind(R.id.tvRankedFirstCategory) TextView tvRankedFirstCategory;
-    @Bind(R.id.tvRankedSecondCategory) TextView tvRankedSecondCategory;
-    @Bind(R.id.tvRankedThirdCategory) TextView tvRankedThirdCategory;
-    @Bind(R.id.tvRankedFirstAmount) TextView tvRankedFirstAmount;
-    @Bind(R.id.tvRankedSecondAmount) TextView tvRankedSecondAmount;
-    @Bind(R.id.tvRankedThirdAmount) TextView tvRankedThirdAmount;
+    @Bind(R.id.pieChart)
+    PieChart mChart;
+    @Bind(R.id.lineChart)
+    LineChart lineChart;
+//    @Bind(R.id.tvBtnMonthly)
+//    TextView btnMonthly;
+//    @Bind(R.id.tvBtnWeekly)
+//    TextView btnWeekly;
+    @Bind(R.id.btnMe)
+    Button btnMe;
+    @Bind(R.id.btnYou)
+    Button btnYou;
+    @Bind(R.id.btnOur)
+    Button btnOur;
+    @Bind(R.id.rlGraphGroup)
+    RelativeLayout rlGraphGoup;
+    @Bind(R.id.tvRankedFirstCategory)
+    TextView tvRankedFirstCategory;
+    @Bind(R.id.tvRankedSecondCategory)
+    TextView tvRankedSecondCategory;
+    @Bind(R.id.tvRankedThirdCategory)
+    TextView tvRankedThirdCategory;
+    @Bind(R.id.tvRankedFirstAmount)
+    TextView tvRankedFirstAmount;
+    @Bind(R.id.tvRankedSecondAmount)
+    TextView tvRankedSecondAmount;
+    @Bind(R.id.tvRankedThirdAmount)
+    TextView tvRankedThirdAmount;
+    @Bind(R.id.tvYear)
+    TextView tvYear;
+    @Bind(R.id.tvMonth)
+    TextView tvMonth;
+
     private OwnerType ownerType;
     private SessionManager sessionManager;
     private Date viewDate;
+    private int year;
+    private int month;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,11 +98,22 @@ public class GraphActivity extends BaseActivity {
         sessionManager = SessionManager.getInstance(this);
         ownerType = OwnerType.ALL;
         viewDate = new Date();
+
         ButterKnife.bind(this);
         setPieChart();
-        requestStaticsData();
+        setTodayDate();
+
+        requestStaticsMonthData(year, month);
+        requestStaticYearData(year);
         setLineChart();
 
+    }
+
+    private void setTodayDate() {
+        this.year = TimeUtils.getYearOfDate(TimeUtils.getToday());
+        this.month = TimeUtils.getMonthOfDate(TimeUtils.getToday());
+        tvYear.setText(String.valueOf(this.year));
+        tvMonth.setText(String.valueOf(this.month));
     }
 
     private void setLineChart() {
@@ -91,6 +126,7 @@ public class GraphActivity extends BaseActivity {
         // enable touch gestures
         lineChart.setTouchEnabled(true);
 
+        lineChart.setDrawingCacheBackgroundColor(getResources().getColor(R.color.color_our));
         // enable scaling and dragging
         lineChart.setDragEnabled(false);
         lineChart.setScaleEnabled(false);
@@ -104,7 +140,7 @@ public class GraphActivity extends BaseActivity {
         lineChart.getAxisRight().setEnabled(false);
 
         // add data
-        setLineData(6, 100);
+//        setLineData(12, 100);
 
         lineChart.animateX(2500, Easing.EasingOption.EaseInOutQuart);
 //        mChart.invalidate();
@@ -114,13 +150,14 @@ public class GraphActivity extends BaseActivity {
         l.setEnabled(false);
     }
 
-    private void requestStaticsData() {
+    private void requestStaticsMonthData(int year, int month) {
+
         final GraphApi graphApi = NetworkManager.getApi(GraphApi.class);
         Observable<List<BillStatics>> graphObservable = graphApi.viewStaticsBillByMonth(
                 sessionManager.getUserToken(),
                 ownerType,
-                String.valueOf(TimeUtils.getYearOfDate(viewDate)),
-                String.valueOf(TimeUtils.getMonthOfDate(viewDate))
+                String.valueOf(year),
+                String.valueOf(month)
         );
 
         bind(graphObservable)
@@ -129,7 +166,6 @@ public class GraphActivity extends BaseActivity {
                     public void call(List<BillStatics> billStatics) {
                         Log.d("BillStatics", billStatics.toString());
                         setPieData(billStatics);
-
                     }
                 }, new Action1<Throwable>() {
                     @Override
@@ -139,25 +175,40 @@ public class GraphActivity extends BaseActivity {
                 });
     }
 
-    private void setBillStaticsData(List<BillStatics> billStaticsList) {
+    private void requestStaticYearData(int year) {
+        final GraphApi graphApi = NetworkManager.getApi(GraphApi.class);
+        Observable<List<String>> graphObservable = graphApi.viewTotalAmountByMonth(
+                sessionManager.getUserToken(),
+                ownerType,
+                String.valueOf(year)
+        );
 
+        bind(graphObservable)
+                .subscribe(new Action1<List<String>>() {
+                    @Override
+                    public void call(List<String> billStatics) {
+                        Log.d("BillStatics", billStatics.toString());
+                        setLineData(billStatics);
+                    }
+                }, new Action1<Throwable>() {
+                    @Override
+                    public void call(Throwable throwable) {
+                        Log.d("ErrorCall", "");
+                    }
+                });
     }
 
-    private void setLineData(int count, float range) {
+    private void setLineData(List<String> billStaticsList) {
 
         ArrayList<String> xVals = new ArrayList<String>();
-        for (int i = 0; i < count; i++) {
-            xVals.add((i+1) + "");
+        for (int i = 1; i <= 12; i++) {
+            xVals.add(i + "");
         }
 
         ArrayList<Entry> yVals = new ArrayList<Entry>();
 
-        for (int i = 0; i < count; i++) {
-
-            float mult = (range + 1);
-            float val = (float) (Math.random() * mult) + 3;// + (float)
-            // ((mult *
-            // 0.1) / 10);
+        for (int i = 0; i < 12; i++) {
+            float val = Float.parseFloat(billStaticsList.get(i));
             yVals.add(new Entry(val, i));
         }
 
@@ -204,13 +255,11 @@ public class GraphActivity extends BaseActivity {
         mChart.setHighlightPerTapEnabled(true);
         mChart.animateY(1400, Easing.EasingOption.EaseInOutQuad);
 
-
         Legend l = mChart.getLegend();
         l.setEnabled(false);
 
         // undo all highlights
         mChart.highlightValues(null);
-
 
     }
 
@@ -227,7 +276,7 @@ public class GraphActivity extends BaseActivity {
         // xIndex (even if from different DataSets), since no values can be
         // drawn above each other.
 
-        for(int i=0; i< billStaticsList.size(); i++) {
+        for (int i = 0; i < billStaticsList.size(); i++) {
             BillStatics billStatics = billStaticsList.get(i);
             String category = billStatics.getCategory();
             yVals1.add(new Entry(billStatics.getPercentage(), i));
@@ -237,20 +286,19 @@ public class GraphActivity extends BaseActivity {
             colors.add(getCategoryColor(category));
 
             String strAmount = Integer.toString(billStatics.getAmount());
-            if(i==0) {
+            if (i == 0) {
                 tvRankedFirstCategory.setText(category);
                 tvRankedFirstAmount.setText(strAmount);
                 tvRankedFirstCategory.setTextColor(getCategoryColor(category));
-            } else if ( i==1) {
+            } else if (i == 1) {
                 tvRankedSecondCategory.setText(category);
                 tvRankedSecondAmount.setText(strAmount);
                 tvRankedSecondCategory.setTextColor(getCategoryColor(category));
-            } else if (i==2) {
+            } else if (i == 2) {
                 tvRankedThirdCategory.setText(category);
                 tvRankedThirdAmount.setText(strAmount);
                 tvRankedThirdCategory.setTextColor(getCategoryColor(category));
             }
-
         }
 
         PieDataSet dataSet = new PieDataSet(yVals1, "");
@@ -271,11 +319,11 @@ public class GraphActivity extends BaseActivity {
         mChart.setData(data);
         mChart.setDrawSliceText(false);
 
-        int year = 2016;
-        int month = 4;
+        int year = this.year;
+        int month = this.month;
         int week = 0;
         String owner = "";
-        switch(ownerType) {
+        switch (ownerType) {
             case ALL:
                 owner = "우리";
                 break;
@@ -286,43 +334,43 @@ public class GraphActivity extends BaseActivity {
                 owner = "너";
                 break;
         }
-        mChart.setCenterText(year+"년 " + month + "월\n"+owner+"의 지출 총액\n"+totalAmount);
+        mChart.setCenterText(year + "년 " + month + "월\n" + owner + "의 지출 총액\n" + totalAmount);
         mChart.animateY(1400, Easing.EasingOption.EaseInOutQuad);
         mChart.invalidate();
     }
 
     private int getCategoryColor(String category) {
-        switch(category) {
-            case "식사" :
+        switch (category) {
+            case "식사":
                 return getResources().getColor(R.color.color_bill_category_meal);
-            case "음료" :
+            case "음료":
                 return getResources().getColor(R.color.color_bill_category_drink);
             case "영화":
                 return getResources().getColor(R.color.color_bill_category_movie);
-            case "쇼핑" :
+            case "쇼핑":
                 return getResources().getColor(R.color.color_bill_category_shopping);
             case "오락":
                 return getResources().getColor(R.color.color_bill_category_game);
-            default :
+            default:
                 return getResources().getColor(R.color.color_white);
         }
     }
 
-    @OnClick(R.id.tvBtnWeekly)
-    void showWeekly() {
-        btnMonthly.setTextColor(getResources().getColor(R.color.color_graph_text));
-        btnMonthly.setBackgroundResource(0);
-        btnWeekly.setTextColor(getResources().getColor(R.color.color_white));
-        btnWeekly.setBackgroundResource(R.drawable.graph_bg_btn);
-    }
-
-    @OnClick(R.id.tvBtnMonthly)
-    void showMonthly() {
-        btnWeekly.setTextColor(getResources().getColor(R.color.color_graph_text));
-        btnWeekly.setBackgroundResource(0);
-        btnMonthly.setTextColor(getResources().getColor(R.color.color_white));
-        btnMonthly.setBackgroundResource(R.drawable.graph_bg_btn);
-    }
+//    @OnClick(R.id.tvBtnWeekly)
+//    void showWeekly() {
+//        btnMonthly.setTextColor(getResources().getColor(R.color.color_graph_text));
+//        btnMonthly.setBackgroundResource(0);
+//        btnWeekly.setTextColor(getResources().getColor(R.color.color_white));
+//        btnWeekly.setBackgroundResource(R.drawable.graph_bg_btn);
+//    }
+//
+//    @OnClick(R.id.tvBtnMonthly)
+//    void showMonthly() {
+//        btnWeekly.setTextColor(getResources().getColor(R.color.color_graph_text));
+//        btnWeekly.setBackgroundResource(0);
+//        btnMonthly.setTextColor(getResources().getColor(R.color.color_white));
+//        btnMonthly.setBackgroundResource(R.drawable.graph_bg_btn);
+//    }
 
 
     @OnClick({R.id.btnOur, R.id.btnMe, R.id.btnYou})
@@ -340,7 +388,7 @@ public class GraphActivity extends BaseActivity {
         }
 
 //        requestBills();
-        requestStaticsData();
+        requestStaticsMonthData(this.year, this.month);
         changeViewByOwnerType();
     }
 

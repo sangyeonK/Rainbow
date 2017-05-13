@@ -31,5 +31,14 @@ public interface GraphApi {
                                            @Query("year") String year,
                                            @Query("month") String month);
 
+    @GET("/rainbow/statistics_bills")
+    Observable<List<BillStatics>> viewStaticsBillByYear(@Header("token") String token,
+                                                         @Query("ownerType") OwnerType ownerType,
+                                                         @Query("year") String year);
+
+    @GET("/rainbow/total_amount_by_month")
+    Observable<List<String>> viewTotalAmountByMonth(@Header("token") String token,
+                                                    @Query("ownerType") OwnerType ownerType,
+                                                    @Query("year") String year);
 
 }
